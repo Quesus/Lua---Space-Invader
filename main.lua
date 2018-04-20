@@ -68,7 +68,7 @@ local scoreText
 
 -- DISPLAY GROUPS
 local backGroup = display.newGroup()	-- background image
-local elementGroup = display.newGroup()	-- asteroids & ship
+local elementGroup = display.newGroup()	-- asteroids, ship and missiles
 local hudGroup = display.newGroup()		-- stats
 
 
@@ -136,7 +136,7 @@ local function fireLaser()
 	local newLaser = display.newImageRect( elementGroup, objectSheet, 5, 14, 40 )
 	physics.addBody( newLaser, "dynamic", { isSensor=true } )
 	newLaser.isBullet = true
-	newLaser.myName = "missile"
+	newLaser.myName = "pew"
 	
 	newLaser.x = ship.x
 	newLaser.y = ship.y
@@ -178,5 +178,110 @@ local function dragShip( event )
 	
 end
 
--- 
+-- Upon 'touching' a ship, trigger dragShip function
 ship:addEventListener( "touch", dragShip )
+
+
+-- Define gameloop
+local function gameLoop()
+	-- create asteroids
+	createAsteroid()
+	-- for loop in count(asteroidTable), stop at 1 and count -1
+	for i = #asteroidTable, 1, -1 do
+		local thisAsteroid = asteroidTable[i]
+		
+		if ( thisAsteroid.x < -100
+			or thisAsteroid.x > display.contentWidth + 100
+			or thisAsteroid.y < -100
+			or thisAsteroid.y > display.contentHeight + 100)
+		then
+			display.remove( thisAsteroid )
+			table.remove( asteroidTable, i )
+		end
+	end
+end
+
+
+-- Collision
+local function onCollision( event )
+	if ( event.phase == "began" ) then
+
+		local obj1 = event.object1
+		local obj2 = event.object2
+		
+		-- Pewpew the asteroid
+		if (
+			( obj1.myName == "pew" and obj2.myName == "asteroid" ) or ( obj1.myName == "asteroid" and obj1.myName == "pew" )
+		)
+		then
+			--print( "hupsa" ) --check
+			display.remove( obj1 )
+			display.remove( obj2 )
+		
+			for i = #asteroidTable, 1, -1 do
+				if ( asteroidTable[i] == obj1 or asteroidTable[i] == obj2 ) then
+					table.remove( asteroidTable, i )
+					break
+				end		
+			end
+			
+			score = score + 100
+			scoreText.text = "Score: " .. score
+		end
+		
+		-- Boomboom the ship
+		if (
+			( obj1.myName == "Vogayer" and obj2.myName == "asteroid" ) or ( obj1.myName == "asteroid" and obj1.myName == "Voyager" )
+		)
+		then
+			if ( died == false ) then
+				died = true
+				
+				lives = lives - 1
+				livesText.text = "Lives: " .. lives
+				
+				if ( lives == 0 ) then --GAME OVER
+					display.remove( ship )
+				else
+					ship.alpha = 0
+					timer.performWithDelay( 1000, restoreShip )
+				end
+			
+			end
+		end
+		
+	end
+end
+
+	
+
+--object.collision = shootAsteroid
+--object:addEventListener( "collision" )
+
+Runtime:addEventListener( "collision", onCollision )
+
+
+
+-- Initiate gameloop. 0 / -1 means indefinite looping
+gameLoopTimer = timer.performWithDelay( 500, gameLoop, 0 )
+
+
+local function restoreShip()
+	--Remove ship from physics simulation
+	ship.isBodyActive = false
+	ship.x = display.contentCenterX
+	ship.y = display.contentHeight - 100
+	
+	-- Fade in
+	transition.to(
+		ship, {
+			alpha=1,
+			time=3000,
+			onComplete = function ()
+				ship.isBodyActive = true
+				died = false
+			end
+		}
+	)
+end
+	
